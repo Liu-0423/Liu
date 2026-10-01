@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-950 text-slate-100 overflow-hidden select-none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taipei Metro Quantum Command Center</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js 3D Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Tone.js Web Audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Holographic Glassmorphism Panels */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37),
+                        inset 0 0 15px rgba(56, 189, 248, 0.05);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(0, 240, 255, 0.2),
+                        inset 0 0 20px rgba(0, 240, 255, 0.1);
+        }
+
+        /* Op-Art Holographic Glowing Borders */
+        .op-art-border {
+            position: relative;
+        }
+        .op-art-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(90deg, #00f0ff, #7928ca, #ff0080, #00f0ff);
+            background-size: 300% 300%;
+            border-radius: inherit;
+            z-index: -1;
+            animation: opArtGlow 6s linear infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes opArtGlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Pulse Animations */
+        @keyframes radarPulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .radar-pulse {
+            animation: radarPulse 3s ease-in-out infinite;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00f0ff;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body class="h-full w-full relative overflow-hidden">
+    <!-- 3D WebGL Background Canvas -->
+    <div id="canvas-container" class="absolute inset-0 z-0 w-full h-full"></div>
+
+    <!-- UI Overlay Layer -->
+    <div class="relative z-10 w-full h-full flex flex-col justify-between p-4 pointer-events-none">
+        
+        <!-- Top Navigation Header -->
+        <header class="w-full flex justify-between items-center glass-panel rounded-2xl p-4 pointer-events-auto border-b border-cyan-500/30">
+            <div class="flex items-center space-x-4">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid font-bold text-xl text-white fa-subway"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-200 to-indigo-300 font-orbitron">
+                        TAIPEI METRO <span class="text-cyan-400">QUANTUM</span> COMMAND
+                    </h1>
+                    <p class="text-xs text-cyan-400/80 tracking-widest font-mono">台北捷運高維度量子軌道指揮中心 v4.0</p>
+                </div>
+            </div>
+
+            <!-- Status Indicator -->
+            <div class="hidden md:flex items-center space-x-6">
+                <div class="flex items-center space-x-2">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                    </span>
+                    <span class="text-xs font-mono text-cyan-300">QUANTUM MATRIX: ONLINE</span>
+                </div>
+                <div class="text-xs font-mono text-slate-400 border-l border-slate-700 pl-4">
+                    SYS TIME: <span id="system-time" class="text-cyan-400 font-bold">10:51:30</span>
+                </div>
+                <button id="audio-toggle" class="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-cyan-500/30 text-cyan-300 text-xs font-mono transition flex items-center space-x-2">
+                    <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+                    <span id="audio-status">AUDIO ON</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Center Interactive Overlay -->
+        <main class="grid grid-cols-1 md:grid-cols-12 gap-4 my-4 flex-1 overflow-hidden pointer-events-none">
+            
+            <!-- Left Panel: Line Selector & Spatial Metrics -->
+            <aside class="md:col-span-3 flex flex-col space-y-4 overflow-y-auto pointer-events-auto">
+                <!-- Line Filter -->
+                <div class="glass-panel p-4 rounded-2xl op-art-border">
+                    <h2 class="text-sm font-bold text-cyan-300 font-orbitron mb-3 flex items-center space-x-2">
+                        <i class="fa-solid fa-layer-group text-xs"></i>
+                        <span>METRO LINES (捷運量子路網)</span>
+                    </h2>
+                    <div class="space-y-2" id="line-buttons">
+                        <button onclick="filterLine('ALL')" class="line-btn active w-full px-3 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400 text-cyan-200 text-xs font-semibold flex items-center justify-between hover:bg-cyan-500/30 transition">
+                            <span class="flex items-center space-x-2"><i class="fa-solid fa-network-wired"></i> <span>全路網整合視覺化 (ALL)</span></span>
+                            <span class="text-[10px] font-mono bg-cyan-900/60 px-1.5 py-0.5 rounded">6 LINES</span>
+                        </button>
+                        <button onclick="filterLine('B')" class="line-btn w-full px-3 py-2 rounded-xl bg-blue-900/30 border border-blue-500/40 text-blue-300 text-xs font-semibold flex items-center justify-between hover:bg-blue-800/40 transition">
+                            <span class="flex items-center space-x-2"><span class="w-2.5 h-2.5 rounded-full bg-[#0070BD]"></span> <span>板南線 Bannan Line</span></span>
+                            <span class="text-[10px] font-mono text-blue-200">BLUE</span>
+                        </button>
+                        <button onclick="filterLine('R')" class="line-btn w-full px-3 py-2 rounded-xl bg-red-900/30 border border-red-500/40 text-red-300 text-xs font-semibold flex items-center justify-between hover:bg-red-800/40 transition">
+                            <span class="flex items-center space-x-2"><span class="w-2.5 h-2.5 rounded-full bg-[#E60000]"></span> <span>淡水信義線 Tamsui-Xinyi</span></span>
+                            <span class="text-[10px] font-mono text-red-200">RED</span>
+                        </button>
+                        <button onclick="filterLine('G')" class="line-btn w-full px-3 py-2 rounded-xl bg-emerald-900/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between hover:bg-emerald-800/40 transition">
+                            <span class="flex items-center space-x-2"><span class="w-2.5 h-2.5 rounded-full bg-[#008659]"></span> <span>松山新店線 Songshan-Xindian</span></span>
+                            <span class="text-[10px] font-mono text-emerald-200">GREEN</span>
+                        </button>
+                        <button onclick="filterLine('O')" class="line-btn w-full px-3 py-2 rounded-xl bg-amber-900/30 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center justify-between hover:bg-amber-800/40 transition">
+                            <span class="flex items-center space-x-2"><span class="w-2.5 h-2.5 rounded-full bg-[#F8B61C]"></span> <span>中和新蘆線 Zhonghe-Xinlu</span></span>
+                            <span class="text-[10px] font-mono text-amber-200">ORANGE</span>
+                        </button>
+                        <button onclick="filterLine('BL')" class="line-btn w-full px-3 py-2 rounded-xl bg-yellow-900/30 border border-yellow-700/40 text-amber-400 text-xs font-semibold flex items-center justify-between hover:bg-yellow-800/40 transition">
+                            <span class="flex items-center space-x-2"><span class="w-2.5 h-2.5 rounded-full bg-[#995000]"></span> <span>文湖線 Wenhu Line</span></span>
+                            <span class="text-[10px] font-mono text-amber-300">BROWN</span>
+                        </button>
+                        <button onclick="filterLine('Y')" class="line-btn w-full px-3 py-2 rounded-xl bg-yellow-900/30 border border-yellow-400/40 text-yellow-300 text-xs font-semibold flex items-center justify-between hover:bg-yellow-800/40 transition">
+                            <span class="flex items-center space-x-2"><span class="w-2.5 h-2.5 rounded-full bg-[#FFDB00]"></span> <span>環狀線 Circular Line</span></span>
+                            <span class="text-[10px] font-mono text-yellow-200">YELLOW</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quantum Field Telemetry -->
+                <div class="glass-panel p-4 rounded-2xl space-y-3">
+                    <h2 class="text-sm font-bold text-cyan-300 font-orbitron flex items-center justify-between">
+                        <span>REAL-TIME FIELD (即時流場)</span>
+                        <i class="fa-solid fa-chart-line text-xs text-cyan-400"></i>
+                    </h2>
+                    <div class="space-y-2">
+                        <div>
+                            <div class="flex justify-between text-xs text-slate-300 mb-1">
+                                <span>車廂人潮量子密度 (Passenger Mass Density)</span>
+                                <span class="font-mono text-cyan-400" id="density-val">84.2%</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div id="density-bar" class="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-500" style="width: 84.2%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs text-slate-300 mb-1">
+                                <span>高維度波動熵值 (Resonance Entropy)</span>
+                                <span class="font-mono text-teal-400" id="entropy-val">0.042 Ψ</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div id="entropy-bar" class="h-full bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full transition-all duration-500" style="width: 42%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs text-slate-300 mb-1">
+                                <span>量子巡航平均速域 (Quantum Velocity)</span>
+                                <span class="font-mono text-fuchsia-400" id="speed-val">128.5 km/h</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div id="speed-bar" class="h-full bg-gradient-to-r from-fuchsia-500 to-pink-500 rounded-full transition-all duration-500" style="width: 68%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Middle Canvas Spacer -->
+            <div class="md:col-span-6 flex flex-col justify-between items-center pointer-events-none">
+                <!-- Center Quantum Reticle HUD -->
+                <div class="mt-4 glass-panel px-6 py-2 rounded-full border border-cyan-500/40 text-center pointer-events-auto">
+                    <span class="text-xs font-mono text-cyan-300 tracking-widest flex items-center space-x-2">
+                        <i class="fa-solid fa-atom animate-spin text-cyan-400"></i>
+                        <span>SPATIAL PERSPECTIVE MATRIX ACTIVE • ROTATE 3D VIEW WITH MOUSE</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Right Panel: Train Fleet Radar & Diagnostics -->
+            <aside class="md:col-span-3 flex flex-col space-y-4 overflow-y-auto pointer-events-auto">
+                <!-- 3D Trains Fleet Monitor -->
+                <div class="glass-panel p-4 rounded-2xl op-art-border">
+                    <h2 class="text-sm font-bold text-cyan-300 font-orbitron mb-3 flex items-center justify-between">
+                        <span>ACTIVE 3D TRAINS (即時列車)</span>
+                        <span class="text-xs bg-cyan-900/60 text-cyan-300 px-2 py-0.5 rounded font-mono">LIVE</span>
+                    </h2>
+                    <div id="train-radar-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        <!-- Dynamic Train Items Generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Quantum Diagnostics Console -->
+                <div class="glass-panel p-4 rounded-2xl flex-1 flex flex-col">
+                    <h2 class="text-sm font-bold text-cyan-300 font-orbitron mb-2 flex items-center space-x-2">
+                        <i class="fa-solid fa-terminal text-xs text-cyan-400"></i>
+                        <span>TELEMETRY LOGS (數據日誌)</span>
+                    </h2>
+                    <div id="terminal-logs" class="flex-1 font-mono text-[11px] text-cyan-200/80 bg-slate-950/80 p-3 rounded-xl overflow-y-auto space-y-1 border border-slate-800">
+                        <p class="text-slate-500">[SYSTEM REBOOT] Quantum Rail Engine initialized.</p>
+                        <p class="text-cyan-400">[BANNAN] Train B-01 registered at Station 台北車站.</p>
+                        <p class="text-emerald-400">[TAMSUI] Spatial warping grid stabilized at 60 FPS.</p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Bottom Panel: Protocols & Audio Spectrum -->
+        <footer class="w-full glass-panel rounded-2xl p-4 pointer-events-auto flex flex-col md:flex-row items-center justify-between gap-4 border-t border-cyan-500/30">
+            <!-- Quantum Protocol Action Buttons -->
+            <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                <button onclick="triggerProtocol('shield')" class="flex-1 md:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs tracking-wider font-orbitron transition shadow-lg shadow-cyan-500/20 active:scale-95 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>玻色-愛因斯坦凝聚屏障</span>
+                </button>
+                <button onclick="triggerProtocol('speed')" class="flex-1 md:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-xs tracking-wider font-orbitron transition shadow-lg shadow-fuchsia-500/20 active:scale-95 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>曲速捷運快車調度</span>
+                </button>
+                <button onclick="triggerProtocol('lock')" class="flex-1 md:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs tracking-wider font-orbitron transition shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>奇點穩定鎖定</span>
+                </button>
+            </div>
+
+            <!-- Audio Spectrum Visualization -->
+            <div class="flex items-center space-x-3 w-full md:w-64">
+                <span class="text-xs font-mono text-cyan-400 whitespace-nowrap">RESONANCE SPECTRUM</span>
+                <div class="flex items-end space-x-1 h-6 w-full" id="spectrum-container">
+                    <div class="spectrum-bar w-full bg-cyan-400 rounded-t h-2 transition-all duration-75"></div>
+                    <div class="spectrum-bar w-full bg-cyan-400 rounded-t h-4 transition-all duration-75"></div>
+                    <div class="spectrum-bar w-full bg-teal-400 rounded-t h-3 transition-all duration-75"></div>
+                    <div class="spectrum-bar w-full bg-indigo-400 rounded-t h-5 transition-all duration-75"></div>
+                    <div class="spectrum-bar w-full bg-fuchsia-400 rounded-t h-2 transition-all duration-75"></div>
+                    <div class="spectrum-bar w-full bg-pink-400 rounded-t h-6 transition-all duration-75"></div>
+                    <div class="spectrum-bar w-full bg-cyan-400 rounded-t h-3 transition-all duration-75"></div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Global Three.js Scene Variables
+        let scene, camera, renderer;
+        let lineGeometries = [], stationNodes = [], trainObjects = [], lightPointObjects = [];
+        let floorGridMesh;
+        let activeLineFilter = 'ALL';
+        let isAudioMuted = false;
+        let synth, noiseSynth;
+
+        // Metro Line Raw Coordinates Data
+        const METRO_LINES = [
+            {
+                id: 'B', name: '板南線 Bannan Line', color: 0x0070BD, hex: '#0070BD',
+                rawPoints: [
+                    [-120, 0, 20],
+                    [-60, 5, 10],
+                    [0, 10, 0],
+                    [60, 5, -10],
+                    [120, 0, -20]
+                ],
+                stations: ['亞東醫院', '板橋', '台北車站', '忠孝復興', '南港展覽館']
+            },
+            {
+                id: 'R', name: '淡水信義線 Tamsui-Xinyi Line', color: 0xE60000, hex: '#E60000',
+                rawPoints: [
+                    [-30, 40, -100],
+                    [-15, 20, -50],
+                    [0, 10, 0],
+                    [20, -5, 40],
+                    [50, -15, 80]
+                ],
+                stations: ['淡水', '士林', '台北車站', '東門', '象山']
+            },
+            {
+                id: 'G', name: '松山新店線 Songshan-Xindian Line', color: 0x008659, hex: '#008659',
+                rawPoints: [
+                    [90, 8, -60],
+                    [40, 6, -30],
+                    [-10, 4, 10],
+                    [-50, 0, 50],
+                    [-80, -10, 90]
+                ],
+                stations: ['松山', '南京復興', '中山', '西門', '新店']
+            },
+            {
+                id: 'O', name: '中和新蘆線 Zhonghe-Xinlu Line', color: 0xF8B61C, hex: '#F8B61C',
+                rawPoints: [
+                    [-90, 25, -70],
+                    [-40, 15, -35],
+                    [10, 2, 5],
+                    [35, -8, 45],
+                    [60, -20, 85]
+                ],
+                stations: ['蘆洲', '民權西路', '忠孝新生', '古亭', '南勢角']
+            },
+            {
+                id: 'BL', name: '文湖線 Wenhu Line', color: 0x995000, hex: '#995000',
+                rawPoints: [
+                    [110, 30, -50],
+                    [60, 20, -20],
+                    [40, 10, 20],
+                    [20, 0, 60]
+                ],
+                stations: ['南港展覽館', '南京復興', '大安', '動物園']
+            },
+            {
+                id: 'Y', name: '環狀線 Circular Line', color: 0xFFDB00, hex: '#FFDB00',
+                rawPoints: [
+                    [-70, -15, -40],
+                    [-80, -5, 10],
+                    [-30, -2, 70],
+                    [30, 2, 60],
+                    [70, -5, 0]
+                ],
+                stations: ['新北產業園區', '頭前庄', '板橋', '景安', '大坪林']
+            }
+        ];
+
+        function initAudio() {
+            try {
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.5 }
+                }).toDestination();
+                synth.volume.value = -12;
+            } catch(e) {
+                console.warn("Audio Context setup fallback", e);
+            }
+        }
+
+        function playBeep(freq = 440, duration = "8n") {
+            if (isAudioMuted || !synth) return;
+            try {
+                Tone.start();
+                synth.triggerAttackRelease(freq, duration);
+            } catch(e) {}
+        }
+
+        function init3DScene() {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x020617, 0.0035);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 80, 150);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // Ambient & Directional Lights
+            scene.add(new THREE.AmbientLight(0x38bdf8, 1.2));
+            const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.5);
+            dirLight.position.set(50, 100, 50);
+            scene.add(dirLight);
+
+            // Create Op-Art Spatial Floor Grid
+            createOpArtFloor();
+
+            // Build Lines, Stations, 3D Trains, and Energy Light Points
+            METRO_LINES.forEach((lineData) => {
+                const curvePointsList = lineData.rawPoints.map(pt => new THREE.Vector3(pt[0], pt[1], pt[2]));
+                const curve = new THREE.CatmullRomCurve3(curvePointsList);
+
+                // 1. Curved Tube Track
+                const tubeGeo = new THREE.TubeGeometry(curve, 100, 1.0, 12, false);
+                const tubeMat = new THREE.MeshStandardMaterial({
+                    color: lineData.color,
+                    metalness: 0.8,
+                    roughness: 0.2,
+                    emissive: lineData.color,
+                    emissiveIntensity: 0.5,
+                    transparent: true,
+                    opacity: 0.85
+                });
+                const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+                tubeMesh.userData = { lineId: lineData.id };
+                scene.add(tubeMesh);
+                lineGeometries.push({ id: lineData.id, mesh: tubeMesh, curve: curve });
+
+                // 2. Station Holographic Portal Rings
+                const stationPoints = curve.getSpacedPoints(lineData.stations.length - 1);
+                lineData.stations.forEach((stName, idx) => {
+                    createStationNode(stationPoints[idx], stName, lineData.hex);
+                });
+
+                // 3. 3D Metro Train Models (列車)
+                for (let i = 0; i < 2; i++) {
+                    const trainMesh = createTrainModel(lineData.color);
+                    scene.add(trainMesh);
+                    trainObjects.push({
+                        id: `Train ${lineData.id}-0${i+1}`,
+                        lineId: lineData.id,
+                        lineHex: lineData.hex,
+                        mesh: trainMesh,
+                        curve: curve,
+                        progress: (i * 0.5) + Math.random() * 0.2,
+                        speed: 0.0008 + Math.random() * 0.0006
+                    });
+                }
+
+                // 4. Energy Pulse Light Points (光點)
+                for (let j = 0; j < 3; j++) {
+                    const lightMesh = createLightPoint(lineData.color);
+                    scene.add(lightMesh);
+                    lightPointObjects.push({
+                        lineId: lineData.id,
+                        mesh: lightMesh,
+                        curve: curve,
+                        progress: Math.random(),
+                        speed: 0.0016 + Math.random() * 0.0012
+                    });
+                }
+            });
+
+            // Interactive Camera Controls via Mouse Drag
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+
+            window.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+
+                camera.position.x += deltaX * 0.15;
+                camera.position.y -= deltaY * 0.15;
+                camera.lookAt(0, 0, 0);
+
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+            window.addEventListener('resize', onWindowResize);
+
+            renderTrainRadarUI();
+        }
+
+        function createOpArtFloor() {
+            const gridGeo = new THREE.PlaneGeometry(300, 300, 40, 40);
+            const gridMat = new THREE.MeshBasicMaterial({
+                color: 0x00f0ff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.15
+            });
+            floorGridMesh = new THREE.Mesh(gridGeo, gridMat);
+            floorGridMesh.rotation.x = -Math.PI / 2;
+            floorGridMesh.position.y = -35;
+            scene.add(floorGridMesh);
+        }
+
+        function createTrainModel(colorHex) {
+            const trainGroup = new THREE.Group();
+
+            // Train Capsule Body
+            const bodyGeo = new THREE.CylinderGeometry(1.4, 1.4, 7, 16);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: 0xe2e8f0,
+                metalness: 0.9,
+                roughness: 0.1,
+                emissive: colorHex,
+                emissiveIntensity: 0.3
+            });
+            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+            bodyMesh.rotation.x = Math.PI / 2;
+            trainGroup.add(bodyMesh);
+
+            // Glowing Headlights
+            const lightGeo = new THREE.SphereGeometry(0.8, 12, 12);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const lightMesh = new THREE.Mesh(lightGeo, lightMat);
+            lightMesh.position.set(0, 0, 3.6);
+            trainGroup.add(lightMesh);
+
+            // Headlight Beam Source
+            const pointLight = new THREE.PointLight(colorHex, 2, 20);
+            pointLight.position.set(0, 0, 4);
+            trainGroup.add(pointLight);
+
+            return trainGroup;
+        }
+
+        function createLightPoint(colorHex) {
+            const group = new THREE.Group();
+            const sphereGeo = new THREE.SphereGeometry(0.9, 16, 16);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const mesh = new THREE.Mesh(sphereGeo, sphereMat);
+            group.add(mesh);
+
+            const pLight = new THREE.PointLight(colorHex, 3, 25);
+            group.add(pLight);
+
+            return group;
+        }
+
+        function createStationNode(position, name, hexColor) {
+            const ringGeo = new THREE.TorusGeometry(2.5, 0.3, 12, 24);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: new THREE.Color(hexColor),
+                wireframe: true
+            });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.position.copy(position);
+            ringMesh.rotation.x = Math.PI / 2;
+            scene.add(ringMesh);
+            stationNodes.push(ringMesh);
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            const clockTime = time * 0.001;
+
+            // 1. Animate Op-Art Floor Grid Waves
+            if (floorGridMesh) {
+                const pos = floorGridMesh.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const u = pos.getX(i);
+                    const v = pos.getY(i);
+                    const z = Math.sin(u * 0.05 + clockTime * 2) * Math.cos(v * 0.05 + clockTime * 2) * 2.5;
+                    pos.setZ(i, z);
+                }
+                pos.needsUpdate = true;
+            }
+
+            // 2. Animate 3D Metro Trains along track curves
+            trainObjects.forEach((train) => {
+                if (activeLineFilter !== 'ALL' && train.lineId !== activeLineFilter) {
+                    train.mesh.visible = false;
+                    return;
+                }
+                train.mesh.visible = true;
+
+                train.progress += train.speed;
+                if (train.progress > 1) train.progress = 0;
+
+                const pos = train.curve.getPointAt(train.progress);
+                const tangent = train.curve.getTangentAt(train.progress);
+
+                train.mesh.position.copy(pos);
+                train.mesh.lookAt(pos.clone().add(tangent));
+            });
+
+            // 3. Animate Glowing Light Energy Points
+            lightPointObjects.forEach((lp) => {
+                if (activeLineFilter !== 'ALL' && lp.lineId !== activeLineFilter) {
+                    lp.mesh.visible = false;
+                    return;
+                }
+                lp.mesh.visible = true;
+
+                lp.progress += lp.speed;
+                if (lp.progress > 1) lp.progress = 0;
+
+                const pos = lp.curve.getPointAt(lp.progress);
+                lp.mesh.position.copy(pos);
+            });
+
+            // 4. Animate Holographic Station Rings
+            stationNodes.forEach((st) => {
+                st.rotation.z += 0.02;
+            });
+
+            // 5. Spectrum Visualizer Random Pulse
+            const bars = document.querySelectorAll('.spectrum-bar');
+            bars.forEach((bar) => {
+                const h = Math.floor(Math.random() * 20) + 4;
+                bar.style.height = `${h}px`;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        function filterLine(lineId) {
+            activeLineFilter = lineId;
+            playBeep(523.25, "16n");
+
+            document.querySelectorAll('.line-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-cyan-400'));
+            event.currentTarget.classList.add('ring-2', 'ring-cyan-400');
+
+            lineGeometries.forEach((item) => {
+                if (lineId === 'ALL' || item.id === lineId) {
+                    item.mesh.material.opacity = 0.9;
+                    item.mesh.material.emissiveIntensity = 0.6;
+                } else {
+                    item.mesh.material.opacity = 0.15;
+                    item.mesh.material.emissiveIntensity = 0.1;
+                }
+            });
+
+            addLog(`[FILTER] Active Quantum Rail Filter set to: ${lineId}`);
+        }
+
+        function triggerProtocol(type) {
+            playBeep(880, "8n");
+            if (type === 'speed') {
+                trainObjects.forEach(t => t.speed *= 2.5);
+                lightPointObjects.forEach(lp => lp.speed *= 2.5);
+                setTimeout(() => {
+                    trainObjects.forEach(t => t.speed /= 2.5);
+                    lightPointObjects.forEach(lp => lp.speed /= 2.5);
+                }, 4000);
+                addLog('[PROTOCOL] 曲速捷運快車調度：全線列車巡航速域提升 250%');
+            } else if (type === 'shield') {
+                addLog('[PROTOCOL] 玻色-愛因斯坦凝聚屏障：車站防護矩陣已全面啟動');
+            } else if (type === 'lock') {
+                addLog('[PROTOCOL] 奇點穩定鎖定：高維度軌道熵值修復完畢');
+            }
+        }
+
+        function renderTrainRadarUI() {
+            const list = document.getElementById('train-radar-list');
+            if (!list) return;
+            list.innerHTML = '';
+
+            trainObjects.forEach((t) => {
+                const div = document.createElement('div');
+                div.className = 'p-2 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex justify-between items-center';
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full" style="background-color:${t.lineHex}"></span>
+                        <span class="font-mono text-cyan-200 font-semibold">${t.id}</span>
+                    </div>
+                    <span class="font-mono text-cyan-400 text-[10px]">ACTIVE • 3D TRACK</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function addLog(msg) {
+            const logs = document.getElementById('terminal-logs');
+            if (!logs) return;
+            const p = document.createElement('p');
+            p.textContent = msg;
+            logs.appendChild(p);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Initialize On Window Load
+        window.onload = function () {
+            initAudio();
+            init3DScene();
+            animate(0);
+
+            // Clock Update
+            setInterval(() => {
+                const now = new Date();
+                const timeStr = now.toTimeString().split(' ')[0];
+                const el = document.getElementById('system-time');
+                if (el) el.textContent = timeStr;
+            }, 1000);
+
+            // Audio Mute Toggle Button
+            const audioBtn = document.getElementById('audio-toggle');
+            if (audioBtn) {
+                audioBtn.onclick = () => {
+                    isAudioMuted = !isAudioMuted;
+                    document.getElementById('audio-status').textContent = isAudioMuted ? 'AUDIO OFF' : 'AUDIO ON';
+                    document.getElementById('audio-icon').className = isAudioMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+                };
+            }
+        };
+    </script>
+</body>
+</html>
